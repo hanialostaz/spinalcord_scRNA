@@ -1,0 +1,245 @@
+```{r eval = FALSE}
+#Loading relevant librarires
+library(Seurat)
+library(openxlsx)
+library(tidyverse)
+library(scCustomize)
+```
+
+```{r eval = FALSE}
+#Loading saved R objects with microglia subtypes annotated via SingleR
+load('/home/bioinfo/Hani/thesis/scrna_data/updated/hemisection/microglia/4_hemisection_microglia.RData')
+hemi.mg <- mg
+hemi.mg$injury <- 'Hemisection'
+load('/home/bioinfo/Hani/thesis/scrna_data/updated/contusion/microglia/4_Contusion_Microglia.RData')
+contusion.mg <- mg
+contusion.mg$injury <- 'Contusion'
+load('/home/bioinfo/Hani/thesis/scrna_data/updated/crush/microglia/4_crush_microglia.RData')
+crush.mg <- mg
+crush.mg$injury <- 'Crush'
+```
+
+```{r eval = FALSE}
+#Microglia Analysis at Various Timepoints - Plots A - C (code repeats for hemi, contusion, and crush injuries)
+Idents(hemi.mg) <- 'condition'
+
+#Uninjured Timepoint Analysis
+uninj <- subset(x = hemi.mg, idents = "Uninjured")
+
+#1 dpi Analysis
+aggr1 <- subset(x = hemi.mg, idents = "1 dpi")
+
+#3 dpi Analysis
+aggr3 <- subset(x = hemi.mg, idents = "3 dpi")
+
+#7 dpi Analysis
+aggr7 <- subset(x = hemi.mg, idents = "7 dpi")
+
+#Subplots of all timepoints
+Idents(uninj) <- 'singler_label'
+Idents(aggr1) <- 'singler_label'
+Idents(aggr3) <- 'singler_label'
+Idents(aggr7) <- 'singler_label'
+
+tiff('hemisection_dividing_microglia_overall.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = uninj, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Hemisection Dividing Microglia - Uninjured') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+
+tiff('hemisection_dividing_microglia_1dpi.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = aggr1, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Hemisection Dividing Microglia - 1 dpi') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+
+tiff('hemisection_dividing_microglia_3dpi.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = aggr3, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Hemisection Dividing Microglia - 3 dpi') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+
+tiff('hemisection_dividing_microglia_7dpi.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = aggr7, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Hemisection Dividing Microglia - 7 dpi') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+```
+
+```{r eval = FALSE}
+Idents(contusion.mg) <- 'condition'
+
+#Uninjured Timepoint Analysis
+uninj <- subset(x = contusion.mg, idents = "Uninjured")
+
+#1 dpi Analysis
+aggr1 <- subset(x = contusion.mg, idents = "1 dpi")
+
+#3 dpi Analysis
+aggr3 <- subset(x = contusion.mg, idents = "3 dpi")
+
+#7 dpi Analysis
+aggr7 <- subset(x = contusion.mg, idents = "7 dpi")
+
+#Subplots of all timepoints
+Idents(uninj) <- 'singler_label'
+Idents(aggr1) <- 'singler_label'
+Idents(aggr3) <- 'singler_label'
+Idents(aggr7) <- 'singler_label'
+
+tiff('contusion_dividing_microglia_overall.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = uninj, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Contusion Dividing Microglia - Uninjured') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+
+tiff('contusion_dividing_microglia_1dpi.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = aggr1, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Contusion Dividing Microglia - 1 dpi') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+
+tiff('contusion_dividing_microglia_3dpi.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = aggr3, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Contusion Dividing Microglia - 3 dpi') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+
+tiff('contusion_dividing_microglia_7dpi.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = aggr7, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Contusion Dividing Microglia - 7 dpi') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+
+```
+
+```{r eval = FALSE}
+#Microglia Analysis at Various Timepoints
+Idents(crush.mg) <- 'condition'
+
+#Uninjured Timepoint Analysis
+uninj <- subset(x = crush.mg, idents = "Uninjured")
+
+#1 dpi Analysis
+aggr1 <- subset(x = crush.mg, idents = "1 dpi")
+
+#3 dpi Analysis
+aggr3 <- subset(x = crush.mg, idents = "3 dpi")
+
+#7 dpi Analysis
+aggr7 <- subset(x = crush.mg, idents = "7 dpi")
+
+#Subplots of all timepoints
+Idents(uninj) <- 'singler_label'
+Idents(aggr1) <- 'singler_label'
+Idents(aggr3) <- 'singler_label'
+Idents(aggr7) <- 'singler_label'
+
+tiff('crush_Dividing_microglia_overall.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = uninj, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray")+ theme(legend.position = "none", text = element_text(size = 28)) #+ ggtitle('Crush Dividing Microglia - Uninjured') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+
+tiff('crush_Dividing_microglia_1dpi.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = aggr1, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Crush Dividing Microglia - 1 dpi') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+
+tiff('crush_Dividing_microglia_3dpi.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = aggr3, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Crush Dividing Microglia - 3 dpi') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+
+tiff('crush_Dividing_microglia_7dpi.tif', width = 10, height = 8, units = 'in', res = 1200, compression = 'lzw')
+Cluster_Highlight_Plot(seurat_object = aggr7, cluster_name = "Dividing Microglia", highlight_color = "red",
+                       background_color = "lightgray") + theme(legend.position = "none", text = element_text(size = 28))#+ ggtitle('Crush Dividing Microglia - 7 dpi') + theme(legend.position = "none", text = element_text(size = 28))
+dev.off()
+```
+
+```{r eval = FALSE}
+#DEGs - Preparing and setting up DEG analysis to plot for D-F
+
+Idents(hemi.mg) <- 'condition'
+ctrl.mg <- subset(x = hemi.mg, idents = c("Uninjured"))
+ctrl.mg$injury <- 'Control'
+
+Idents(hemi.mg) <- 'condition'
+hemi.mg <- subset(x = hemi.mg, idents = c("1 dpi", "3 dpi", "7 dpi"))
+
+Idents(contusion.mg) <- 'condition'
+contusion.mg <- subset(x = contusion.mg, idents = c("1 dpi", "3 dpi", "7 dpi"))
+
+Idents(crush.mg) <- 'condition'
+crush.mg <- subset(x = crush.mg, idents = c("1 dpi", "3 dpi", "7 dpi"))
+
+combined <- merge(ctrl.mg, c(hemi.mg, contusion.mg, crush.mg))
+combined.dm <- subset(combined, subset = singler_label == 'Dividing Microglia')
+
+DefaultAssay(combined.dm) <- "RNA"
+
+Idents(combined.dm) <- 'injury'
+
+deg <- FindAllMarkers(combined.dm, only.pos = T)
+
+combined1 <- subset(deg, subset = cluster == 'Hemisection')
+combined2 <- subset(deg, subset = cluster == 'Contusion')
+combined3 <- subset(deg, subset = cluster == 'Crush')
+
+write.xlsx(combined1, file = 'hemisection_Dividing_microglia_degrev.xlsx')
+write.xlsx(combined2, file = 'contusion_Dividing_microglia_degrev.xlsx')
+write.xlsx(combined3, file = 'crush_Dividing_microglia_degrev.xlsx')
+
+#Hemisection DEGs
+hemi.dm <- subset(hemi.mg, subset = singler_label == 'Dividing Microglia')
+cont.dm <- subset(contusion.mg, subset = singler_label == 'Dividing Microglia')
+crush.dm <- subset(crush.mg, subset = singler_label == 'Dividing Microglia')
+
+Idents(hemi.dm) <- 'condition'
+Idents(cont.dm) <- 'condition'
+Idents(crush.dm) <- 'condition'
+hemi.dm <- subset(x = hemi.dm, idents = c("1 dpi", "3 dpi", "7 dpi"))
+cont.dm <- subset(x = cont.dm, idents = c("1 dpi", "3 dpi", "7 dpi"))
+crush.dm <- subset(x = crush.dm, idents = c("1 dpi", "3 dpi", "7 dpi"))
+```
+
+```{r eval = FALSE}
+tiff('hemi_Dividing_microglia_rack1.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = hemi.dm, features = c("Rack1")) + theme(plot.title = element_text(size = 44))
+dev.off()
+
+tiff('hemi_Dividing_microglia_selenoh.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = hemi.dm, features = c("Selenoh")) + theme(plot.title = element_text(size = 44))
+dev.off()
+
+tiff('hemi_Dividing_microglia_slc8a1.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = hemi.dm, features = c("Slc8a1")) + theme(plot.title = element_text(size = 32))
+dev.off()
+
+tiff('hemi_Dividing_microglia_inpp5d.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = hemi.dm, features = c("Inpp5d")) + theme(plot.title = element_text(size = 32))
+dev.off()
+
+tiff('cont_Dividing_microglia_ccl3.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = cont.dm, features = c("Ccl3")) + theme(plot.title = element_text(size = 44))
+dev.off()
+
+tiff('cont_Dividing_microglia_Ccl4.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = cont.dm, features = c("Ccl4")) + theme(plot.title = element_text(size = 44))
+dev.off()
+
+tiff('cont_Dividing_microglia_cxcl2.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = cont.dm, features = c("Cxcl2")) + theme(plot.title = element_text(size = 32))
+dev.off()
+
+tiff('cont_Dividing_microglia_tnf.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = cont.dm, features = c("Tnf")) + theme(plot.title = element_text(size = 32))
+dev.off()
+
+tiff('crush_Dividing_microglia_sparcl1.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = crush.dm, features = c("Sparcl1")) + theme(plot.title = element_text(size = 44))
+dev.off()
+
+tiff('crush_Dividing_microglia_atp1a2.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = crush.dm, features = c("Atp1a2")) + theme(plot.title = element_text(size = 44))
+dev.off()
+
+tiff('crush_Dividing_microglia_aldoc.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = crush.dm, features = c("Aldoc")) + theme(plot.title = element_text(size = 32))
+dev.off()
+
+tiff('crush_Dividing_microglia_meg3.tif', width = 10, height = 6, units = 'in', res = 1200, compression = 'lzw')
+FeaturePlot_scCustom(seurat_object = crush.dm, features = c("Meg3")) + theme(plot.title = element_text(size = 32))
+dev.off()
+```

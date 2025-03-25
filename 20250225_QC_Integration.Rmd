@@ -1,0 +1,72 @@
+```{r setup}
+#Loading libraries needed for integration/pre-processing
+library(Seurat)
+library(scDblFinder)
+library(SingleR)
+library(ggplot2)
+```
+
+```{r}
+#Load 10X outputs and combine in a count matrix - these were saved from GEO repositories created by respective papers
+sample_dirs <- list("/home/bioinfo/Hani/thesis/scrna_data/updated/hemisection/GSE189070", 
+                    "/home/bioinfo/Hani/thesis/scrna_data/updated/contusion/GSE162610", 
+                    "/home/bioinfo/Hani/thesis/scrna_data/updated/crush/")
+
+data <- lapply(sample_dirs, function(dir) {
+  Read10X(data.dir = dir)
+})
+```
+
+```{r}
+#Pre-processing combined datasets
+
+#Utlizing the lapply function to apply these steps per dataset
+concat_obj <- lapply(data, function(counts) {
+  seurat_obj <- CreateSeuratObject(counts = counts)
+  
+  #Doublet removal via scDblFinder - expected doublet rate set as per documentation
+  dbl_res <- scDblFinder(seurat_obj, expected.doublet.rate = 0.01)
+  seurat_obj <- seurat_obj[, !dbl_res$scDblFinder.class == "doublet"]
+  
+  #Identifying and filtering out mitochondrial and ribosomal related noise
+  seurat_obj["percent.mt"] <- PercentageFeatureSet(seurat_obj, pattern = "^MT-")
+  seurat_obj["percent.ribo"] <- PercentageFeatureSet(seurat_obj, pattern = "^RPS|^RPL")
+  seurat_obj <- subset(seurat_obj, subset = percent.mt < 20 & percent.ribo < 40)
+  
+  #Normalizing and identifying top 3000 highly variable features within each dataset
+  seurat_obj <- NormalizeData(seurat_obj)
+  seurat_obj <- FindVariableFeatures(seurat_obj, selection.method = "vst", nfeatures = 3000)
+  
+  return(seurat_obj)
+})
+```
+
+```{r}
+#Integrating the three datasets
+integ_feat <- SelectIntegrationFeatures(object.list = concat_obj, nfeatures = 3000)
+integ_anchor <- FindIntegrationAnchors(object.list = concat_obj, anchor.features = integ_feat)
+integrated_seurat <- IntegrateData(anchorset = integ_anchor)
+
+#Scaling data, regressing out mitochondrial features as well as forming PCA
+seurat_integ <- ScaleData(seurat_integ, vars.to.regress = "percent.mt")
+seurat_integ <- RunPCA(seurat_integ, npcs = 30)
+```
+
+```{r}
+#Clustering and visualizing in a UMAP based on 30 closest neighbors
+seurat_integ <- FindNeighbors(seurat_integ, dims = 1:30)
+seurat_integ <- FindClusters(seurat_integ, resolution = 1)
+seurat_integ <- RunUMAP(seurat_integ, dims = 1:30)
+DimPlot(integrated_seurat, reduction = "umap")
+```
+
+```{r}
+#Annotating via SingleR with a reference rds object sourced from the Milich, et al paper (contusion paper)
+reference <- readRDS("/home/bioinfo/Hani/thesis/scrna_data/updated/reference/SCI.rds")
+singler_annot <- SingleR(test = GetAssayData(seurat_integ, slot = "data"),
+                            ref = reference, labels = reference$cell_type)
+
+#Assigning cell type labels based on SingleR results
+seurat_integ$cell_type <- singler_annot$labels
+DimPlot(seurat_integ, group.by = "cell_type")
+```
