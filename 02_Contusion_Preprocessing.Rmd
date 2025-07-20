@@ -1,0 +1,136 @@
+```{r setup}
+#Loading libraries needed for integration/pre-processing
+library(Seurat)
+library(Matrix)
+library(scDblFinder)
+library(SingleR)
+library(ggplot2)
+library(data.table)
+library(BiocParallel)
+```
+
+```{r}
+#Load 10X outputs and combine in a count matrix - these were saved from GEO repositories created by respective papers
+contusion <- readRDS("C:/Users/alost/Downloads/SCI.rds")
+```
+
+```{r}
+cells_to_remove1 <- colnames(contusion)[endsWith(colnames(contusion), "_sample2")]
+cells_to_remove2 <- colnames(contusion)[endsWith(colnames(contusion), "_sample3")]
+
+contusion <- subset(contusion, cells = setdiff(colnames(contusion), cells_to_remove1))
+contusion <- subset(contusion, cells = setdiff(colnames(contusion), cells_to_remove2))
+```
+
+```{r}
+contusion[["percent.mt"]] <- PercentageFeatureSet(contusion, pattern = "^mt-")
+
+VlnPlot(contusion, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'time',
+        pt.size = 0.001, combine = T) & theme(legend.position = 'none',
+                                                               axis.title.x = element_blank())
+
+```
+
+```{r}
+VlnPlot(contusion, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'time',
+        pt.size = 0, combine = T) & theme(legend.position = 'none',
+                                                               axis.title.x = element_blank())
+```
+
+
+```{r}
+contusion <- subset(contusion, subset = percent.mt < 20)
+```
+
+```{r}
+sce <- as.SingleCellExperiment(contusion)
+
+sce <- scDblFinder(sce, samples = 'time')
+
+contusion$doublet_score <- sce$scDblFinder.score
+contusion$doublet_class <- sce$scDblFinder.class
+```
+
+```{r}
+contusion <- contusion[, !sce$scDblFinder.class == "doublet"]
+```
+
+```{r}
+contusion <- NormalizeData(contusion, normalization.method = "LogNormalize", scale.factor = 10000)
+contusion <- FindVariableFeatures(contusion, selection.method = "vst", nfeatures = 3000)
+```
+
+```{r}
+contusion <- ScaleData(contusion, vars.to.regress = "percent.mt")
+```
+
+```{r}
+contusion <- RunPCA(contusion, features = VariableFeatures(object = contusion))
+```
+
+```{r}
+ElbowPlot(contusion)
+```
+
+```{r}
+contusion <- FindNeighbors(contusion, dims = 1:15, reduction = "pca")
+contusion <- FindClusters(contusion, resolution = 1)
+```
+
+```{r}
+contusion <- RunUMAP(contusion, dims = 1:15)
+DimPlot(contusion, reduction = "umap", 
+        group.by = c("seurat_clusters", "time"),
+        alpha=0.4, ncol=2)
+```
+
+```{r}
+options(future.globals.maxSize = 12 * 1024^3)
+
+contusion[["RNA"]] <- split(contusion[["RNA"]], f = contusion$time)
+
+contusion <- IntegrateLayers(
+  object = contusion, method = RPCAIntegration,
+  orig.reduction = "pca", new.reduction = "integrated.rpca",
+  verbose = FALSE
+)
+```
+
+```{r}
+contusion[["RNA"]] <- JoinLayers(contusion[["RNA"]])
+```
+
+```{r}
+contusion <- FindNeighbors(contusion, reduction = "integrated.rpca", dims = 1:15)
+contusion <- FindClusters(contusion, resolution = 1)
+```
+
+```{r}
+contusion <- RunUMAP(contusion, dims = 1:15, reduction = "integrated.rpca")
+DimPlot(contusion, reduction = "umap", group.by = c("seurat_clusters"))
+```
+
+```{r}
+DimPlot(contusion, reduction = "umap", split.by = "time", ncol = 2)
+```
+
+```{r}
+saveRDS(contusion, file = "C:/Users/alost/Downloads/contusion_noannot.rds")
+#contusion <- readRDS("C:/Users/alost/Downloads/contusion_noannot.rds")
+```
+
+```{r}
+rna_assay <- contusion[["RNA"]]
+```
+
+```{r}
+writeMM(rna_assay@layers[["counts"]], "~/SCI/Contusion/counts.mtx")
+write.csv(rownames(rna_assay), "~/SCI/Contusion/genes.csv", row.names = FALSE)
+write.csv(colnames(rna_assay), "~/SCI/Contusion/barcodes.csv", row.names = FALSE)
+
+write.csv(contusion@meta.data, file = "~/SCI/Contusion/metadata.csv")
+
+write.csv(Embeddings(contusion, "pca"), file = "~/SCI/Contusion/pca.csv")
+
+write.csv(Embeddings(contusion, "umap"), file = "~/SCI/Contusion/umap.csv")
+```

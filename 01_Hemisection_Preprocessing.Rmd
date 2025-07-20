@@ -1,0 +1,154 @@
+```{r setup}
+#Loading libraries needed for integration/pre-processing
+library(Seurat)
+library(Matrix)
+library(scDblFinder)
+library(SingleR)
+library(ggplot2)
+library(data.table)
+library(BiocParallel)
+```
+
+```{r}
+#Load 10X outputs and combine in a count matrix - these were saved from GEO repositories created by respective papers
+data0 <- Read10X(data.dir = "C:/Users/alost/Downloads/GSE189070_RAW/uninjured/")
+seurat0 <- CreateSeuratObject(counts = data0, min.cells = 3, min.features = 100)
+seurat0$time <- 'uninjured'
+seurat0$injury <- 'hemisection'
+
+data1 <- Read10X(data.dir = "C:/Users/alost/Downloads/GSE189070_RAW/SCI1d/")
+seurat1 <- CreateSeuratObject(counts = data1, min.cells = 3, min.features = 100)
+seurat1$time <- '1dpi'
+seurat1$injury <- 'hemisection'
+
+data2 <- Read10X(data.dir = "C:/Users/alost/Downloads/GSE189070_RAW/SCI3d/")
+seurat2 <- CreateSeuratObject(counts = data2, min.cells = 3, min.features = 100)
+seurat2$time <- '3dpi'
+seurat2$injury <- 'hemisection'
+
+data3 <- Read10X(data.dir = "C:/Users/alost/Downloads/GSE189070_RAW/SCI7d/")
+seurat3 <- CreateSeuratObject(counts = data3, min.cells = 3, min.features = 100)
+seurat3$time <- '7dpi'
+seurat3$injury <- 'hemisection'
+
+data4 <- Read10X(data.dir = "C:/Users/alost/Downloads/GSE189070_RAW/SCI14d/")
+seurat4 <- CreateSeuratObject(counts = data4, min.cells = 3, min.features = 100)
+seurat4$time <- '14dpi'
+seurat4$injury <- 'hemisection'
+```
+
+```{r}
+hemi <- merge(seurat0, c(seurat1, seurat2, seurat3, seurat4), add.cell.ids = c("uninjured", '1d', '3d', '7d', '14d'), project = "hemisection")
+hemi <- JoinLayers(hemi)
+hemi
+```
+```{r}
+hemi[["percent.mt"]] <- PercentageFeatureSet(hemi, pattern = "^mt-")
+
+VlnPlot(hemi, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'time',
+        pt.size = 0.001, combine = T) & theme(legend.position = 'none',
+                                                               axis.title.x = element_blank())
+
+```
+
+```{r}
+VlnPlot(hemi, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'time',
+        pt.size = 0, combine = T) & theme(legend.position = 'none',
+                                                               axis.title.x = element_blank())
+```
+
+
+```{r}
+hemi <- subset(hemi, subset = percent.mt < 20)
+```
+
+```{r}
+sce <- as.SingleCellExperiment(hemi)
+
+sce <- scDblFinder(sce, samples = 'time')
+
+hemi$doublet_score <- sce$scDblFinder.score
+hemi$doublet_class <- sce$scDblFinder.class
+```
+
+```{r}
+hemi <- hemi[, !sce$scDblFinder.class == "doublet"]
+```
+
+```{r}
+hemi <- NormalizeData(hemi, normalization.method = "LogNormalize", scale.factor = 10000)
+hemi <- FindVariableFeatures(hemi, selection.method = "vst", nfeatures = 3000)
+```
+
+```{r}
+hemi <- ScaleData(hemi, vars.to.regress = "percent.mt")
+```
+
+```{r}
+hemi <- RunPCA(hemi, features = VariableFeatures(object = hemi))
+```
+
+```{r}
+ElbowPlot(hemi)
+```
+
+```{r}
+hemi <- FindNeighbors(hemi, dims = 1:15, reduction = "pca")
+hemi <- FindClusters(hemi, resolution = 1)
+```
+
+```{r}
+hemi <- RunUMAP(hemi, dims = 1:15)
+DimPlot(hemi, reduction = "umap", 
+        group.by = c("seurat_clusters", "time"),
+        alpha=0.4, ncol=2)
+```
+
+```{r}
+options(future.globals.maxSize = 12 * 1024^3)
+
+hemi[["RNA"]] <- split(hemi[["RNA"]], f = hemi$time)
+
+hemi <- IntegrateLayers(
+  object = hemi, method = RPCAIntegration,
+  orig.reduction = "pca", new.reduction = "integrated.rpca",
+  verbose = FALSE
+)
+```
+
+```{r}
+hemi[["RNA"]] <- JoinLayers(hemi[["RNA"]])
+```
+
+```{r}
+hemi <- FindNeighbors(hemi, reduction = "integrated.rpca", dims = 1:15)
+hemi <- FindClusters(hemi, resolution = 1)
+```
+
+```{r}
+hemi <- RunUMAP(hemi, dims = 1:15, reduction = "integrated.rpca")
+DimPlot(hemi, reduction = "umap", group.by = c("seurat_clusters"))
+```
+
+```{r}
+DimPlot(hemi, reduction = "umap", split.by = "time", ncol = 2)
+```
+
+```{r}
+saveRDS(hemi, file = "C:/Users/alost/Downloads/hemi_noannot.rds")
+#hemi <- readRDS("C:/Users/alost/Downloads/hemi_noannot.rds")
+```
+
+```{r}
+rna_assay <- hemi[["RNA"]]
+
+writeMM(rna_assay@layers[["counts"]], "~/SCI/Hemisection/counts.mtx")
+write.csv(rownames(rna_assay), "~/SCI/Hemisection/genes.csv", row.names = FALSE)
+write.csv(colnames(rna_assay), "~/SCI/Hemisection/barcodes.csv", row.names = FALSE)
+
+write.csv(hemi@meta.data, file = "~/SCI/Hemisection/metadata.csv")
+
+write.csv(Embeddings(hemi, "pca"), file = "~/SCI/Hemisection/pca.csv")
+
+write.csv(Embeddings(hemi, "umap"), file = "~/SCI/Hemisection/umap.csv")
+```

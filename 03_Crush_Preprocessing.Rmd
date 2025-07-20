@@ -1,0 +1,166 @@
+```{r setup}
+#Loading libraries needed for integration/pre-processing
+library(Seurat)
+library(Matrix)
+library(scDblFinder)
+library(SingleR)
+library(ggplot2)
+library(data.table)
+library(BiocParallel)
+```
+
+```{r}
+#Load 10X outputs and combine in a count matrix - these were saved from GEO repositories created by respective papers
+crush <- readRDS("C:/Users/alost/Downloads/17702045/sci_scrna.rds")
+```
+
+```{r}
+crush[["RNA"]]$data <- NULL
+crush[["RNA"]]$scale.data <- NULL
+```
+
+
+```{r}
+crush <- subset(crush, subset = time %in% c("uninjured", "1d", "3d", "7d", "14d"))
+crush
+```
+
+```{r}
+#confirming min.cells = 3, min.features = 100
+min_cells <- 3
+crush <- crush[Matrix::rowSums(crush@assays$RNA@counts > 0) >= min_cells, ]
+
+min_features <- 100
+crush <- crush[, crush@meta.data$nFeature_RNA >= min_features]
+```
+
+```{r}
+crush[["percent.mt"]] <- PercentageFeatureSet(crush, pattern = "^mt-")
+
+VlnPlot(crush, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'time',
+        pt.size = 0.001, combine = T) & theme(legend.position = 'none',
+                                                               axis.title.x = element_blank())
+
+```
+
+```{r}
+VlnPlot(crush, features = c("nFeature_RNA", "nCount_RNA", "percent.mt"), group.by = 'time',
+        pt.size = 0, combine = T) & theme(legend.position = 'none',
+                                                               axis.title.x = element_blank())
+```
+
+
+```{r}
+crush <- subset(crush, subset = percent.mt < 20)
+```
+
+```{r}
+sce <- as.SingleCellExperiment(crush)
+
+sce <- scDblFinder(sce, samples = 'time')
+
+crush$doublet_score <- sce$scDblFinder.score
+crush$doublet_class <- sce$scDblFinder.class
+```
+
+```{r}
+crush <- crush[, !sce$scDblFinder.class == "doublet"]
+```
+
+```{r}
+crush <- NormalizeData(crush, normalization.method = "LogNormalize", scale.factor = 10000)
+crush <- FindVariableFeatures(crush, selection.method = "vst", nfeatures = 3000)
+```
+
+```{r}
+crush <- ScaleData(crush, vars.to.regress = "percent.mt")
+```
+
+```{r}
+crush <- RunPCA(crush, features = VariableFeatures(object = crush))
+```
+
+```{r}
+ElbowPlot(crush)
+```
+
+```{r}
+crush <- FindNeighbors(crush, dims = 1:15, reduction = "pca")
+crush <- FindClusters(crush, resolution = 1)
+```
+
+```{r}
+crush <- RunUMAP(crush, dims = 1:15)
+DimPlot(crush, reduction = "umap", 
+        group.by = c("seurat_clusters", "time"),
+        alpha=0.4, ncol=2)
+```
+
+```{r}
+options(future.globals.maxSize = 12 * 1024^3)
+
+crush[["RNA"]] <- split(crush[["RNA"]], f = crush$time)
+
+crush <- IntegrateLayers(
+  object = crush, method = RPCAIntegration,
+  orig.reduction = "pca", new.reduction = "integrated.rpca",
+  verbose = FALSE
+)
+```
+
+```{r}
+crush[["RNA"]] <- JoinLayers(crush[["RNA"]])
+```
+
+```{r}
+crush <- FindNeighbors(crush, reduction = "integrated.rpca", dims = 1:15)
+crush <- FindClusters(crush, resolution = 1)
+```
+
+```{r}
+crush <- RunUMAP(crush, dims = 1:15, reduction = "integrated.rpca")
+DimPlot(crush, reduction = "umap", group.by = c("seurat_clusters"))
+```
+
+```{r}
+DimPlot(crush, reduction = "umap", split.by = "time", ncol = 2)
+```
+
+```{r}
+saveRDS(crush, file = "C:/Users/alost/Downloads/crush_noannot.rds")
+#crush <- readRDS("C:/Users/alost/Downloads/crush_noannot.rds")
+```
+
+```{r}
+rna_assay <- crush[["RNA"]]
+
+writeMM(rna_assay@layers[["counts"]], "~/SCI/Crush/counts.mtx")
+write.csv(rownames(rna_assay), "~/SCI/Crush/genes.csv", row.names = FALSE)
+write.csv(colnames(rna_assay), "~/SCI/Crush/barcodes.csv", row.names = FALSE)
+
+write.csv(crush@meta.data, file = "~/SCI/Crush/metadata.csv")
+
+write.csv(Embeddings(crush, "pca"), file = "~/SCI/Crush/pca.csv")
+
+write.csv(Embeddings(crush, "umap"), file = "~/SCI/Crush/umap.csv")
+```
+
+```{r}
+#Annotating via SingleR with a reference rds object sourced from the Milich, et al paper (contusion paper)
+reference <- readRDS("C:/Users/alost/Downloads/SCI.rds")
+```
+
+```{r}
+rna_assay <- reference[["RNA"]]
+counts_matrix <- GetAssayData(reference, assay = "RNA", layer = "counts")
+
+writeMM(counts_matrix, "~/SCI/Reference/counts.mtx")
+write.csv(rownames(rna_assay), "~/SCI/Reference/genes.csv", row.names = FALSE)
+write.csv(colnames(rna_assay), "~/SCI/Reference/barcodes.csv", row.names = FALSE)
+
+write.csv(reference@meta.data, file = "~/SCI/Reference/metadata.csv")
+
+write.csv(Embeddings(reference, "pca"), file = "~/SCI/Reference/pca.csv")
+
+write.csv(Embeddings(reference, "umap"), file = "~/SCI/Reference/umap.csv")
+```
